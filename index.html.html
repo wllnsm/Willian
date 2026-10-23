@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Filtro de Programação de Bordadeiras</title>
+  <!-- Biblioteca com suporte a estilos e formatação -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f4f6f9; color: #333; }
+    
+    .title-header {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      min-height: 45px;
+    }
+    .title-header img.logo {
+      position: absolute;
+      left: 0;
+      height: 45px;
+      width: auto;
+      object-fit: contain;
+    }
+    .title-header h2 {
+      color: #1a365d;
+      margin: 0;
+      text-align: center;
+    }
+
+    .controls { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+    input[type="file"], input[type="text"], input[type="date"], select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    input[type="text"]#searchInput { min-width: 320px; }
+    input[type="text"]#apontamentoCode { width: 140px; min-width: unset; text-align: center; font-weight: bold; }
+    button { padding: 10px 20px; background-color: #2b6cb0; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    button:hover { background-color: #2c5282; }
+    button:disabled { background-color: #a0aec0; cursor: not-allowed; }
+    
+    .tab-buttons { display: flex; gap: 10px; margin-bottom: -1px; position: relative; z-index: 1; flex-wrap: wrap; }
+    .tab-btn { background-color: #e2e8f0; color: #4a5568; border-radius: 8px 8px 0 0; border: 1px solid #cbd5e0; border-bottom: none; padding: 10px 20px; cursor: pointer; font-weight: bold; transition: none; }
+    .tab-btn:hover { background-color: #e2e8f0; color: #4a5568; }
+    .tab-btn.active { background-color: #fff; color: #1a365d; border-bottom: 1px solid #fff; }
+    
+    .tab-content { display: none; background: white; padding: 20px; border-radius: 0 8px 8px 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .tab-content.active { display: block; }
+
+    #output { overflow-x: auto; }
+    .header-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: bold; }
+    .header-info .code-title { flex: 1; text-align: center; font-size: 18px; color: #1a365d; }
+    .header-info .foam-date { text-align: right; font-size: 14px; color: #4a5568; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #cbd5e0; padding: 8px 12px; text-align: left; font-size: 13px; }
+    th { background-color: #edf2f7; color: #2d3748; }
+    tr.machine-header { background-color: #2b6cb0; color: white; font-weight: bold; font-size: 15px; }
+    tr.column-header { background-color: #e2e8f0; font-weight: bold; }
+    tr.total-row { background-color: #edf2f7; font-weight: bold; }
+    .no-results { color: #e53e3e; font-weight: bold; margin-top: 10px; }
+
+    .apontamento-header-fields { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; background: #f7fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; }
+    .apontamento-header-fields label { font-weight: bold; color: #2d3748; font-size: 14px; display: flex; flex-direction: column; gap: 5px; }
+    .table-apontamento { width: 100%; table-layout: fixed; }
+    .table-apontamento input[type="number"], .table-apontamento input[type="text"], .table-apontamento select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 13px; }
+    .table-apontamento input[type="checkbox"] { transform: scale(1.2); cursor: pointer; }
+    .table-apontamento td { text-align: center; vertical-align: middle; }
+
+    .consult-filters { display: flex; gap: 15px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; background: #f7fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; }
+    .consult-filters label { font-weight: bold; color: #2d3748; font-size: 13px; display: flex; flex-direction: column; gap: 5px; }
+  </style>
+</head>
+<body>
+
+  <div class="title-header">
+    <img src="https://orthocrin.com.br/cdn/shop/files/logo_orthocrin.png?v=1770413790&width=300" alt="Logo Orthocrin" class="logo" />
+    <h2 id="mainTitle">Filtro de Programação de Bordadeiras</h2>
+  </div>
+
+  <div class="tab-buttons">
+    <button class="tab-btn active" onclick="switchTab('programacao')">Programação de Bordadeiras</button>
+    <button class="tab-btn" onclick="switchTab('apontamento')">Apontamento</button>
+    <button class="tab-btn" onclick="switchTab('consultasobras')">Consulta sobras</button>
+    <button class="tab-btn" onclick="switchTab('consultaapontamento')">Consulta apontamento</button>
+  </div>
+  
+  <div id="tab-programacao" class="tab-content active">
+    <div class="controls" style="margin-bottom: 15px; box-shadow: none; padding: 0; background: transparent;">
+      <input type="file" id="excelFile" accept=".xls,.xlsx" />
+      <input type="text" id="searchInput" placeholder="Digite o código (ex: COD.054 ou 054)" />
+      <button id="btnExport" onclick="exportExcel()" disabled>Exportar Excel Filtrado</button>
+    </div>
+    <div id="output">
+      <p>Selecione um arquivo Excel para iniciar.</p>
+    </div>
+  </div>
+
+  <div id="tab-apontamento" class="tab-content">
+    <h3 style="color: #1a365d; margin-top: 0;">Apontamento de corte</h3>
+    
+    <div class="apontamento-header-fields">
+      <label>
+        Código do Item:
+        <input type="text" id="apontamentoCode" value="" placeholder="20.200.862" onblur="formatarCodigoInput(this)" />
+      </label>
+      <label>
+        Data de Costura:
+        <input type="date" id="dataCostura" />
+      </label>
+      <button id="btnSalvar" onclick="salvarApontamentos()" style="margin-top: 18px; background-color: #38a169;">Salvar Apontamentos</button>
+    </div>
+
+    <div style="max-height: 500px; overflow-y: auto;">
+      <table class="table-apontamento">
+        <thead>
+          <tr>
+            <th style="width: 75px;">Qtd</th>
+            <th style="width: 85px;">Modelo</th>
+            <th style="width: 90px;">Total</th>
+            <th style="width: 105px;">Bordadeira</th>
+            <th style="width: 150px;">Saldo (Ativo)</th>
+            <th>Observação</th>
+            <th style="width: 75px;">Gerar Saldo</th>
+          </tr>
+        </thead>
+        <tbody id="apontamentoTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-consultasobras" class="tab-content">
+    <h3 style="color: #1a365d; margin-top: 0;">Consulta Sobras</h3>
+    
+    <div class="consult-filters">
+      <label>
+        Filtrar por Data:
+        <input type="date" id="filtroDataConsulta" oninput="renderConsultTable()" />
+      </label>
+      <label>
+        Filtrar por Código:
+        <input type="text" id="filtroCodigoConsulta" placeholder="Ex: 20.200.862" oninput="renderConsultTable()" />
+      </label>
+      <button onclick="limparFiltrosConsulta()" style="margin-top: 18px; background-color: #718096;">Limpar Filtros</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+      <table style="width: 100%;">
+        <thead>
+          <tr style="background-color: #e2e8f0;">
+            <th>Data Costura</th>
+            <th>Código Item</th>
+            <th>Quantidade</th>
+            <th>Modelo</th>
+            <th>Total</th>
+            <th>Bordadeira</th>
+            <th>Saldo Vinculado / Gerado</th>
+            <th>Observação</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody id="consultTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="tab-consultaapontamento" class="tab-content">
+    <h3 style="color: #1a365d; margin-top: 0;">Consulta de Todos os Apontamentos</h3>
+    
+    <div class="consult-filters">
+      <label>
+        Filtrar por Data:
+        <input type="date" id="filtroDataGeral" oninput="renderGeneralTable()" />
+      </label>
+      <label>
+        Filtrar por Código:
+        <input type="text" id="filtroCodigoGeral" placeholder="Ex: 20.200.862" oninput="renderGeneralTable()" />
+      </label>
+      <button onclick="limparFiltrosGeral()" style="margin-top: 18px; background-color: #718096;">Limpar Filtros</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+      <table style="width: 100%;">
+        <thead>
+          <tr style="background-color: #e2e8f0;">
+            <th>Data Costura</th>
+            <th>Código Item</th>
+            <th>Quantidade</th>
+            <th>Modelo</th>
+            <th>Total</th>
+            <th>Bordadeira</th>
+            <th>Gera Saldo?</th>
+            <th>Observação</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody id="generalTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbxHKDyHzbrAKqkX3kXu8Z1cXywUo4-J6o3gLYGW-quu5cEr-qodYiD3mzWuohTtRQu7/exec";
+
+    let rawData = [];
+    let processedRowsForExport = [];
+    let extractedFoamDateText = "";
+    let formattedCode = "";
+    let cachedApontamentos = [];
+
+    document.getElementById('excelFile').addEventListener('change', handleFile, false);
+    document.getElementById('searchInput').addEventListener('input', filterData);
+
+    async function fetchStoredApontamentos() {
+      if (!API_URL || API_URL.includes("SUA_URL")) return [];
+      try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          cachedApontamentos = data;
+        }
+        return cachedApontamentos;
+      } catch (e) {
+        console.error("Erro ao carregar dados da planilha Google:", e);
+        return cachedApontamentos;
+      }
+    }
+
+    function getStoredApontamentos() {
+      return cachedApontamentos;
+    }
+
+    async function saveStoredApontamentos(novosApontamentos) {
+      if (!API_URL || API_URL.includes("SUA_URL")) {
+        alert("Cole a URL do Google Apps Script no código HTML antes de salvar!");
+        return;
+      }
+      
+      // Atualiza o cache local imediatamente para os dados aparecerem na hora
+      cachedApontamentos = cachedApontamentos.concat(novosApontamentos);
+
+      try {
+        await fetch(API_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(novosApontamentos)
+        });
+      } catch (e) {
+        console.error("Erro ao enviar dados para o Google Sheets:", e);
+      }
+    }
+
+    function formatDateToBR(dateStr) {
+      if (!dateStr) return "";
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return dateStr;
+    }
+
+    function formatarCodigoInput(input) {
+      let val = input.value.replace(/\D/g, '');
+      if (val.length === 8) {
+        input.value = `${val.slice(0, 2)}.${val.slice(2, 5)}.${val.slice(5)}`;
+      }
+      atualizarSelectsSaldoAtivo();
+    }
+
+    function initApontamentoTable() {
+      const tbody = document.getElementById('apontamentoTableBody');
+      tbody.innerHTML = '';
+      for (let i = 0; i < 60; i++) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="number" class="ap-qtd" oninput="calculateRow(this)" placeholder="0"></td>
+          <td><input type="number" step="0.001" class="ap-modelo" oninput="validateModel(this); calculateRow(this)" placeholder="0.000"></td>
+          <td><input type="text" class="ap-total" readonly style="background-color: #edf2f7; font-weight: bold;" value="0,000"></td>
+          <td><input type="text" class="ap-bordadeira" placeholder="Bordadeira"></td>
+          <td>
+            <select class="ap-saldo-select" title="Selecione o saldo ativo para abater">
+              <option value="">Nenhum / Novo</option>
+            </select>
+          </td>
+          <td><input type="text" class="ap-obs" placeholder="Observações..."></td>
+          <td><input type="checkbox" class="ap-saldo-flag" title="Gerar saldo com este item"></td>
+        `;
+        tbody.appendChild(tr);
+      }
+      atualizarSelectsSaldoAtivo();
+    }
+
+    function validateModel(input) {
+      let val = parseFloat(input.value.replace(',', '.')) || 0;
+      if (val > 2.5) {
+        alert('O valor do modelo não pode ser maior que 2,5.');
+        input.value = '2.5';
+      }
+    }
+
+    function atualizarSelectsSaldoAtivo() {
+      const apontamentos = getStoredApontamentos();
+      const codigoAtual = document.getElementById('apontamentoCode').value.trim();
+      
+      const saldosAtivos = apontamentos.filter(item => {
+        const itemCod = normalizeText(item.codigo);
+        const matchCod = !codigoAtual || itemCod.includes(normalizeText(codigoAtual)) || normalizeText(codigoAtual).includes(itemCod);
+        return item.geraSaldo && !item.abatido && matchCod;
+      });
+      
+      document.querySelectorAll('.ap-saldo-select').forEach(select => {
+        const valorAtual = select.value;
+        select.innerHTML = '<option value="">Nenhum / Novo</option>';
+        saldosAtivos.forEach((saldo, idx) => {
+          const opt = document.createElement('option');
+          opt.value = saldo.id || idx;
+          opt.textContent = `${saldo.codigo} | ${formatDateToBR(saldo.data)} | Qtd: ${saldo.qtd} | Mod: ${Number(saldo.modelo).toLocaleString('pt-BR', {minimumFractionDigits: 3})}`;
+          select.appendChild(opt);
+        });
+        select.value = valorAtual;
+      });
+    }
+
+    document.getElementById('apontamentoCode').addEventListener('input', () => {
+      atualizarSelectsSaldoAtivo();
+    });
+
+    function calculateRow(element) {
+      const row = element.closest('tr');
+      const qtdVal = parseFloat(row.querySelector('.ap-qtd').value) || 0;
+      const modeloVal = parseFloat(row.querySelector('.ap-modelo').value.replace(',', '.')) || 0;
+      const totalField = row.querySelector('.ap-total');
+      
+      const total = qtdVal * modeloVal;
+      totalField.value = total.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    }
+
+    async function salvarApontamentos() {
+      const codigoInput = document.getElementById('apontamentoCode');
+      formatarCodigoInput(codigoInput);
+      const codigo = codigoInput.value.trim();
+      const dataCostura = document.getElementById('dataCostura').value;
+
+      if (!codigo) {
+        alert('Por favor, informe o Código do Item.');
+        return;
+      }
+      if (!dataCostura) {
+        alert('Por favor, informe a Data de Costura.');
+        return;
+      }
+
+      const rows = document.querySelectorAll('#apontamentoTableBody tr');
+      const novosParaSalvar = [];
+
+      rows.forEach(row => {
+        const qtd = parseFloat(row.querySelector('.ap-qtd').value) || 0;
+        if (qtd > 0) {
+          const modelo = parseFloat(row.querySelector('.ap-modelo').value.replace(',', '.')) || 0;
+          if (modelo > 2.5) {
+            alert('Existe um valor de modelo maior que 2,5. Corrija antes de salvar.');
+            return;
+          }
+          const totalVal = qtd * modelo;
+          const bordadeira = row.querySelector('.ap-bordadeira').value.trim();
+          const saldoSelect = row.querySelector('.ap-saldo-select').value;
+          const obs = row.querySelector('.ap-obs').value.trim();
+          const geraSaldo = row.querySelector('.ap-saldo-flag').checked;
+
+          const novoRegistro = {
+            id: 'ID_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            codigo: codigo,
+            data: dataCostura,
+            qtd: qtd,
+            modelo: modelo,
+            total: totalVal,
+            bordadeira: bordadeira,
+            saldoVinculado: saldoSelect || "",
+            obs: obs,
+            geraSaldo: geraSaldo,
+            abatido: false
+          };
+
+          novosParaSalvar.push(novoRegistro);
+        }
+      });
+
+      if (novosParaSalvar.length === 0) {
+        alert('Preencha pelo menos uma linha com Quantidade maior que zero para salvar.');
+        return;
+      }
+
+      const btnSalvar = document.getElementById('btnSalvar');
+      btnSalvar.disabled = true;
+      btnSalvar.innerText = "Salvando...";
+
+      await saveStoredApontamentos(novosParaSalvar);
+
+      btnSalvar.disabled = false;
+      btnSalvar.innerText = "Salvar Apontamentos";
+
+      alert(`${novosParaSalvar.length} apontamento(s) salvo(s) com sucesso!`);
+      initApontamentoTable();
+      renderConsultTable();
+      renderGeneralTable();
+    }
+
+    function renderConsultTable() {
+      const tbody = document.getElementById('consultTableBody');
+      const filtroData = document.getElementById('filtroDataConsulta').value;
+      const filtroCodigo = normalizeText(document.getElementById('filtroCodigoConsulta').value);
+      
+      const apontamentos = getStoredApontamentos();
+      tbody.innerHTML = '';
+
+      const filtrados = apontamentos.filter(item => {
+        const matchData = !filtroData || item.data === filtroData;
+        const matchCod = !filtroCodigo || normalizeText(item.codigo).includes(filtroCodigo);
+        return matchData && matchCod && item.geraSaldo && !item.abatido;
+      });
+
+      if (filtrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #718096;">Nenhuma sobra encontrada.</td></tr>`;
+        return;
+      }
+
+      filtrados.forEach(item => {
+        const tr = document.createElement('tr');
+        const numTotal = Number(item.total) || 0;
+        tr.innerHTML = `
+          <td>${formatDateToBR(item.data)}</td>
+          <td>${item.codigo}</td>
+          <td>${item.qtd}</td>
+          <td>${item.modelo}</td>
+          <td style="font-weight: bold; background: #edf2f7;">${numTotal.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td>
+          <td>${item.bordadeira}</td>
+          <td>${item.saldoVinculado ? 'Vinculado' : 'Gera Saldo'}</td>
+          <td>${item.obs}</td>
+          <td><span style="color: #38a169; font-weight: bold; font-size: 11px;">Salvo</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderGeneralTable() {
+      const tbody = document.getElementById('generalTableBody');
+      const filtroData = document.getElementById('filtroDataGeral').value;
+      const filtroCodigo = normalizeText(document.getElementById('filtroCodigoGeral').value);
+      
+      const apontamentos = getStoredApontamentos();
+      tbody.innerHTML = '';
+
+      const filtrados = apontamentos.filter(item => {
+        const matchData = !filtroData || item.data === filtroData;
+        const matchCod = !filtroCodigo || normalizeText(item.codigo).includes(filtroCodigo);
+        return matchData && matchCod;
+      });
+
+      if (filtrados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #718096;">Nenhum apontamento encontrado.</td></tr>`;
+        return;
+      }
+
+      filtrados.forEach(item => {
+        const tr = document.createElement('tr');
+        const numTotal = Number(item.total) || 0;
+        tr.innerHTML = `
+          <td>${formatDateToBR(item.data)}</td>
+          <td>${item.codigo}</td>
+          <td>${item.qtd}</td>
+          <td>${item.modelo}</td>
+          <td style="font-weight: bold; background: #edf2f7;">${numTotal.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })}</td>
+          <td>${item.bordadeira}</td>
+          <td style="text-align: center;">${item.geraSaldo ? 'Sim' : 'Não'}</td>
+          <td>${item.obs}</td>
+          <td><span style="color: #38a169; font-weight: bold; font-size: 11px;">Salvo</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function limparFiltrosConsulta() {
+      document.getElementById('filtroDataConsulta').value = '';
+      document.getElementById('filtroCodigoConsulta').value = '';
+      renderConsultTable();
+    }
+
+    function limparFiltrosGeral() {
+      document.getElementById('filtroDataGeral').value = '';
+      document.getElementById('filtroCodigoGeral').value = '';
+      renderGeneralTable();
+    }
+
+    async function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      if (tabName === 'programacao') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('tab-programacao').classList.add('active');
+      } else if (tabName === 'apontamento') {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('tab-apontamento').classList.add('active');
+        await fetchStoredApontamentos();
+        atualizarSelectsSaldoAtivo();
+      } else if (tabName === 'consultasobras') {
+        document.querySelectorAll('.tab-btn')[2].classList.add('active');
+        document.getElementById('tab-consultasobras').classList.add('active');
+        await fetchStoredApontamentos();
+        renderConsultTable();
+      } else if (tabName === 'consultaapontamento') {
+        document.querySelectorAll('.tab-btn')[3].classList.add('active');
+        document.getElementById('tab-consultaapontamento').classList.add('active');
+        await fetchStoredApontamentos();
+        renderGeneralTable();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      initApontamentoTable();
+      await fetchStoredApontamentos();
+      renderConsultTable();
+      renderGeneralTable();
+    });
+
+    function handleFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+        filterData();
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function formatToBrDate(value) {
+      if (!value) return "";
+      if (typeof value === 'number' && value > 20000) {
+        const dateObj = XLSX.SSF.parse_date_code(value);
+        if (dateObj) {
+          const d = String(dateObj.d).padStart(2, '0');
+          const m = String(dateObj.m).padStart(2, '0');
+          return `${d}/${m}/${dateObj.y}`;
+        }
+      }
+      const strVal = String(value).trim();
+      const parts = strVal.split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+        }
+        if (parts[2].length === 4 || parts[2].length === 2) {
+          let p1 = parseInt(parts[0], 10);
+          let p2 = parseInt(parts[1], 10);
+          let year = parts[2];
+          if (p1 > 12) return `${String(p1).padStart(2, '0')}/${String(p2).padStart(2, '0')}/${year}`;
+          if (p2 > 12) return `${String(p2).padStart(2, '0')}/${String(p1).padStart(2, '0')}/${year}`;
+          return `${String(p2).padStart(2, '0')}/${String(p1).padStart(2, '0')}/${year}`;
+        }
+      }
+      return strVal;
+    }
+
+    function normalizeText(text) {
+      if (!text) return "";
+      return String(text).toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    function parseNumericValue(val) {
+      if (val === undefined || val === null || val === "") return 0;
+      if (typeof val === 'number') return val;
+      let clean = String(val).replace(',', '.').replace(/[^\d.-]/g, '');
+      let num = parseFloat(clean);
+      return isNaN(num) ? 0 : num;
+    }
+
+    function filterData() {
+      const searchVal = document.getElementById('searchInput').value.trim();
+      const query = normalizeText(searchVal);
+      const outputDiv = document.getElementById('output');
+      
+      if (!rawData.length) {
+        outputDiv.innerHTML = "<p>Selecione um arquivo Excel válido.</p>";
+        return;
+      }
+
+      if (!query) {
+        outputDiv.innerHTML = "<p>Digite algum termo para filtrar (ex: <b>COD.054</b> ou <b>054</b>).</p>";
+        document.getElementById('btnExport').disabled = true;
+        document.getElementById('mainTitle').innerText = "Filtro de Programação de Bordadeiras";
+        return;
+      }
+
+      const rawNumber = searchVal.replace(/\D/g, '') || searchVal;
+      formattedCode = "20.200." + rawNumber;
+      document.getElementById('mainTitle').innerText = "Programação de Bordadeiras - " + formattedCode;
+
+      let rawJ1 = (rawData.length > 0 && rawData[0]) ? rawData[0][9] : "";
+      extractedFoamDateText = formatToBrDate(rawJ1);
+      
+      let displayFoamDate = "Data espumação: " + extractedFoamDateText;
+
+      let html = `<div class="header-info">
+                    <div class="code-title">${formattedCode}</div>
+                    <div class="foam-date">${displayFoamDate}</div>
+                  </div><table>`;
+      let currentMachine = "";
+      let currentHeaders = [];
+      let matchCount = 0;
+      processedRowsForExport = [];
+
+      let currentMachineItemsCount = 0;
+      let sumColG = 0;
+      let sumColH = 0;
+
+      function closeMachineBlock() {
+        if (currentMachineItemsCount > 0) {
+          const totalRowData = ["TOTAL", "", "", "", "", "", sumColG, sumColH];
+          
+          html += `<tr class="total-row">
+                    <td colspan="6" style="text-align: right; font-weight: bold;">TOTAL:</td>
+                    <td style="font-weight: bold;">${sumColG.toLocaleString('pt-BR')}</td>
+                    <td style="font-weight: bold;">${sumColH.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</td>
+                  </tr>`;
+
+          processedRowsForExport.push({ type: 'total', data: totalRowData });
+
+          sumColG = 0;
+          sumColH = 0;
+          currentMachineItemsCount = 0;
+        }
+      }
+
+      for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || row.length === 0) continue;
+
+        const firstCell = row[0] ? String(row[0]).trim() : "";
+
+        if (firstCell.toUpperCase().startsWith("BORDADEIRA") || firstCell.toUpperCase().startsWith("CATIFLEX")) {
+          closeMachineBlock();
+          currentMachine = firstCell;
+          currentHeaders = [];
+          continue;
+        }
+
+        if (firstCell === "Produto" || (row[1] && String(row[1]).trim() === "Tecido Clauster")) {
+          currentHeaders = row.slice(0, 8);
+          if (currentHeaders.length > 5) currentHeaders[5] = "Alt.";
+          if (currentHeaders.length > 6) currentHeaders[6] = "TAMPOS PROGRAMADOS Qtde";
+          if (currentHeaders.length > 7) currentHeaders[7] = "TAMPOS PROGRAMADOS Metros";
+          continue;
+        }
+
+        const rowContent = row.map(cell => normalizeText(cell)).join(" ");
+
+        if (rowContent.includes(query)) {
+          const slicedRow = row.slice(0, 8);
+
+          if (currentMachine) {
+            html += `<tr class="machine-header"><td colspan="8">${currentMachine}</td></tr>`;
+            processedRowsForExport.push({ type: 'machine', data: [currentMachine] });
+            currentMachine = "";
+          }
+
+          if (currentHeaders.length > 0) {
+            html += `<tr class="column-header">` + currentHeaders.map(h => `<th>${h || ''}</th>`).join('') + `</tr>`;
+            processedRowsForExport.push({ type: 'header', data: currentHeaders });
+            currentHeaders = [];
+          }
+
+          html += "<tr>" + slicedRow.map(c => `<td>${c !== undefined ? c : ''}</td>`).join('') + "</tr>";
+          processedRowsForExport.push({ type: 'data', data: slicedRow });
+
+          sumColG += parseNumericValue(slicedRow[6]);
+          sumColH += parseNumericValue(slicedRow[7]);
+          currentMachineItemsCount++;
+          matchCount++;
+        }
+      }
+
+      closeMachineBlock();
+
+      const apontamentos = getStoredApontamentos();
+      const saldosAtivosTela = apontamentos.filter(item => {
+        const itemCod = normalizeText(item.codigo);
+        const matchSearch = itemCod.includes(query) || query.includes(itemCod);
+        return matchSearch && item.geraSaldo && !item.abatido;
+      });
+      
+      if (saldosAtivosTela.length > 0) {
+        html += `<tr style="background-color: #f6ad55; color: white; font-weight: bold;"><td colspan="8">SALDOS / SOBRAS DISPONÍVEIS DE DIAS ANTERIORES</td></tr>`;
+        processedRowsForExport.push({ type: 'machine', data: ["SALDOS / SOBRAS DISPONÍVEIS DE DIAS ANTERIORES"] });
+
+        html += `<tr style="background-color: #edf2f7; font-weight: bold;"><td>Origem</td><td colspan="4">Data</td><td></td><td>Quantidade</td><td>Medida</td></tr>`;
+        processedRowsForExport.push({ type: 'data', data: ["Origem", "Data", "", "", "", "", "Quantidade", "Medida"] });
+
+        saldosAtivosTela.forEach(s => {
+          const origemVal = s.obs ? s.obs : "Sobra anterior";
+          const dataBR = formatDateToBR(s.data);
+          const medidaFormatada = Number(s.total).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+          const rowSobra = [origemVal, dataBR, "", "", "", "", s.qtd, medidaFormatada];
+          html += `<tr><td>${origemVal}</td><td colspan="4">${dataBR}</td><td></td><td><b>${s.qtd}</b></td><td><b>${medidaFormatada}</b></td></tr>`;
+          processedRowsForExport.push({ type: 'data', data: rowSobra });
+        });
+      }
+
+      html += "</table>";
+
+      if (matchCount === 0 && saldosAtivosTela.length === 0) {
+        outputDiv.innerHTML = `<p class="no-results">Nenhum registro encontrado contendo "${query}".</p>`;
+        document.getElementById('btnExport').disabled = true;
+      } else {
+        outputDiv.innerHTML = `<p><b>Total de itens encontrados:</b> ${matchCount + saldosAtivosTela.length}</p>` + html;
+        document.getElementById('btnExport').disabled = false;
+      }
+    }
+
+    function generateAnalysisSheet(codeName) {
+      const ws = {};
+      const thinBorder = {
+        top: { style: "thin", color: { rgb: "000000" } },
+        bottom: { style: "thin", color: { rgb: "000000" } },
+        left: { style: "thin", color: { rgb: "000000" } },
+        right: { style: "thin", color: { rgb: "000000" } }
+      };
+
+      ws["A1"] = {
+        v: "ANÁLISE DE TECIDO " + codeName,
+        t: 's',
+        s: {
+          font: { bold: true, sz: 16, name: "Aptos Narrow" },
+          alignment: { horizontal: "center", vertical: "center" }
+        }
+      };
+      for (let c = 1; c <= 4; c++) {
+        ws[XLSX.utils.encode_cell({ r: 0, c: c })] = { v: "", t: 's' };
+      }
+
+      ws["D2"] = {
+        v: "3,65 METROS / KG",
+        t: 's',
+        s: {
+          font: { sz: 11, name: "Aptos Narrow" },
+          alignment: { horizontal: "right", vertical: "center" }
+        }
+      };
+
+      ws["A3"] = {
+        v: "SALDO INICIAL",
+        t: 's',
+        s: { font: { sz: 11, name: "Aptos Narrow" }, border: thinBorder }
+      };
+      ws["B3"] = { v: "", t: 's', s: { border: thinBorder } };
+      ws["D3"] = {
+        v: "DATA: ______ / _______ ",
+        t: 's',
+        s: {
+          font: { sz: 11, name: "Aptos Narrow" },
+          alignment: { horizontal: "right", vertical: "center" }
+        }
+      };
+
+      ws["A4"] = {
+        v: "RECEBIDO DIA",
+        t: 's',
+        s: { font: { sz: 11, name: "Aptos Narrow" }, border: thinBorder }
+      };
+      ws["B4"] = { v: "", t: 's', s: { border: thinBorder } };
+
+      const headers = ["Quantidade", "Modelo", "Bordadeira", "Observação"];
+      headers.forEach((h, idx) => {
+        const cellRef = XLSX.utils.encode_cell({ r: 6, c: idx });
+        ws[cellRef] = {
+          v: h,
+          t: 's',
+          s: {
+            font: { sz: 10, name: "Aptos Narrow" },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: thinBorder
+          }
+        };
+      });
+
+      for (let r = 7; r < 57; r++) {
+        for (let c = 0; c < 4; c++) {
+          const cellRef = XLSX.utils.encode_cell({ r: r, c: c });
+          ws[cellRef] = { v: "", t: 's', s: { border: thinBorder } };
+        }
+      }
+
+      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 56, c: 3 } });
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
+
+      ws['!cols'] = [
+        { wch: 12 },
+        { wch: 30 },
+        { wch: 12 },
+        { wch: 55 }
+      ];
+
+      ws['!pageSetup'] = {
+        paperSize: 9,
+        orientation: 'portrait',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 1
+      };
+
+      ws['!printOptions'] = { fitToPage: true };
+      ws['!margins'] = { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 };
+      ws['!sheetViews'] = [{ showGridLines: true }];
+
+      return ws;
+    }
+
+    async function exportExcel() {
+      if (!processedRowsForExport.length) return;
+
+      const ws = {};
+      const merges = [];
+      let maxCols = 8;
+
+      const thinBorder = {
+        top: { style: "thin", color: { rgb: "D1D5DB" } },
+        bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+        left: { style: "thin", color: { rgb: "D1D5DB" } },
+        right: { style: "thin", color: { rgb: "D1D5DB" } }
+      };
+
+      let rowIndex = 0;
+
+      const codeCellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
+      ws[codeCellRef] = {
+        v: formattedCode,
+        t: 's',
+        s: {
+          font: { bold: true, sz: 14, color: { rgb: "1A365D" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        }
+      };
+      for (let c = 1; c < 6; c++) {
+        ws[XLSX.utils.encode_cell({ r: rowIndex, c: c })] = { v: "", t: 's' };
+      }
+      merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: 5 } });
+
+      const foamCellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 6 });
+      ws[foamCellRef] = {
+        v: "Data espumação: " + extractedFoamDateText,
+        t: 's',
+        s: {
+          font: { bold: true, sz: 10, color: { rgb: "4A5568" } },
+          alignment: { horizontal: "right", vertical: "center" }
+        }
+      };
+      ws[XLSX.utils.encode_cell({ r: rowIndex, c: 7 })] = { v: "", t: 's' };
+      merges.push({ s: { r: rowIndex, c: 6 }, e: { r: rowIndex, c: 7 } });
+
+      rowIndex += 2;
+
+      processedRowsForExport.forEach(item => {
+        if (item.type === 'machine') {
+          const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
+          ws[cellRef] = {
+            v: item.data[0],
+            t: 's',
+            s: {
+              font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
+              fill: { fgColor: { rgb: item.data[0].includes("SALDOS") ? "D97706" : "2B6CB0" } },
+              alignment: { horizontal: "center", vertical: "center" },
+              border: thinBorder
+            }
+          };
+
+          for (let c = 1; c < maxCols; c++) {
+            const emptyRef = XLSX.utils.encode_cell({ r: rowIndex, c: c });
+            ws[emptyRef] = {
+              v: "",
+              t: 's',
+              s: {
+                fill: { fgColor: { rgb: item.data[0].includes("SALDOS") ? "D97706" : "2B6CB0" } },
+                border: thinBorder
+              }
+            };
+          }
+
+          merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: maxCols - 1 } });
+
+        } else if (item.type === 'header') {
+          item.data.forEach((val, colIndex) => {
+            const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+            ws[cellRef] = {
+              v: val !== undefined ? val : "",
+              t: 's',
+              s: {
+                font: { bold: true, color: { rgb: "1A202C" }, sz: 10 },
+                fill: { fgColor: { rgb: "E2E8F0" } },
+                alignment: { horizontal: "center", vertical: "center", wrapText: true },
+                border: thinBorder
+              }
+            };
+          });
+
+        } else if (item.type === 'data') {
+          for (let colIndex = 0; colIndex < maxCols; colIndex++) {
+            const val = item.data[colIndex];
+            const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+            
+            ws[cellRef] = {
+              v: val !== undefined ? val : "",
+              t: typeof val === 'number' ? 'n' : 's',
+              s: {
+                font: { sz: 9 },
+                alignment: { vertical: "center" },
+                border: thinBorder
+              }
+            };
+          }
+
+        } else if (item.type === 'total') {
+          const totalLabelRef = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
+          ws[totalLabelRef] = {
+            v: "TOTAL",
+            t: 's',
+            s: {
+              font: { bold: true, sz: 10, color: { rgb: "1A202C" } },
+              fill: { fgColor: { rgb: "EDF2F7" } },
+              alignment: { horizontal: "right", vertical: "center" },
+              border: thinBorder
+            }
+          };
+
+          for (let c = 1; c <= 5; c++) {
+            const emptyRef = XLSX.utils.encode_cell({ r: rowIndex, c: c });
+            ws[emptyRef] = {
+              v: "",
+              t: 's',
+              s: {
+                fill: { fgColor: { rgb: "EDF2F7" } },
+                border: thinBorder
+              }
+            };
+          }
+          merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: 5 } });
+
+          const cellG = XLSX.utils.encode_cell({ r: rowIndex, c: 6 });
+          ws[cellG] = {
+            v: item.data[6],
+            t: 'n',
+            s: {
+              font: { bold: true, sz: 10, color: { rgb: "1A202C" } },
+              fill: { fgColor: { rgb: "EDF2F7" } },
+              alignment: { horizontal: "right", vertical: "center" },
+              border: thinBorder
+            }
+          };
+
+          const cellH = XLSX.utils.encode_cell({ r: rowIndex, c: 7 });
+          ws[cellH] = {
+            v: item.data[7],
+            t: 'n',
+            s: {
+              font: { bold: true, sz: 10, color: { rgb: "1A202C" } },
+              fill: { fgColor: { rgb: "EDF2F7" } },
+              alignment: { horizontal: "right", vertical: "center" },
+              border: thinBorder
+            }
+          };
+        }
+        rowIndex++;
+      });
+
+      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rowIndex - 1, c: maxCols - 1 } });
+      ws['!merges'] = merges;
+
+      ws['!cols'] = [
+        { wch: 40.86 },
+        { wch: 36 },
+        { wch: 15 },
+        { wch: 4.29 },
+        { wch: 6 },
+        { wch: 3.71 },
+        { wch: 12.57 },
+        { wch: 12.57 }
+      ];
+
+      ws['!pageSetup'] = {
+        paperSize: 9,
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0
+      };
+
+      ws['!printOptions'] = { fitToPage: true };
+      ws['!margins'] = { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 };
+      ws['!sheetViews'] = [{ showGridLines: true }];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Programação Filtrada");
+
+      const sheetNameCode = formattedCode.trim();
+      const wsAnalysis = generateAnalysisSheet(sheetNameCode);
+      XLSX.utils.book_append_sheet(wb, wsAnalysis, sheetNameCode);
+
+      const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const zip = await JSZip.loadAsync(wbArray);
+
+      async function applyPrintSetup(sheetPath, orientation, fitToWidth, fitToHeight) {
+        const sheetFile = zip.file(sheetPath);
+        if (!sheetFile) return;
+
+        const xml = await sheetFile.async('string');
+        const parser = new DOMParser();
+        const serializer = new XMLSerializer();
+        const doc = parser.parseFromString(xml, 'application/xml');
+
+        if (doc.getElementsByTagName('parsererror').length) {
+          throw new Error('Não foi possível ler o XML da planilha: ' + sheetPath);
+        }
+
+        const worksheet = doc.documentElement;
+        const ns = worksheet.namespaceURI || 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+
+        ['printOptions', 'pageMargins', 'pageSetup'].forEach(tag => {
+          Array.from(worksheet.getElementsByTagNameNS(ns, tag)).forEach(el => el.remove());
+        });
+
+        let sheetPr = Array.from(worksheet.children).find(el => el.localName === 'sheetPr');
+        if (!sheetPr) {
+          sheetPr = doc.createElementNS(ns, 'sheetPr');
+          const firstChild = worksheet.firstElementChild;
+          worksheet.insertBefore(sheetPr, firstChild || null);
+        }
+
+        Array.from(sheetPr.children)
+          .filter(el => el.localName === 'pageSetUpPr')
+          .forEach(el => el.remove());
+
+        const pageSetUpPr = doc.createElementNS(ns, 'pageSetUpPr');
+        pageSetUpPr.setAttribute('fitToPage', '1');
+        sheetPr.appendChild(pageSetUpPr);
+
+        const printOptions = doc.createElementNS(ns, 'printOptions');
+        printOptions.setAttribute('gridLines', '1');
+
+        const pageMargins = doc.createElementNS(ns, 'pageMargins');
+        pageMargins.setAttribute('left', '0.25');
+        pageMargins.setAttribute('right', '0.25');
+        pageMargins.setAttribute('top', '0.4');
+        pageMargins.setAttribute('bottom', '0.4');
+        pageMargins.setAttribute('header', '0.2');
+        pageMargins.setAttribute('footer', '0.2');
+
+        const pageSetup = doc.createElementNS(ns, 'pageSetup');
+        pageSetup.setAttribute('paperSize', '9');
+        pageSetup.setAttribute('orientation', orientation);
+        pageSetup.setAttribute('fitToWidth', String(fitToWidth));
+        pageSetup.setAttribute('fitToHeight', String(fitToHeight));
+
+        const insertBeforeNames = [
+          'headerFooter', 'rowBreaks', 'colBreaks', 'customProperties',
+          'cellWatches', 'ignoredErrors', 'smartTags', 'drawing',
+          'legacyDrawing', 'legacyDrawingHF', 'picture', 'oleObjects',
+          'controls', 'webPublishItems', 'tableParts', 'extLst'
+        ];
+        const reference = Array.from(worksheet.children).find(el => insertBeforeNames.includes(el.localName));
+
+        worksheet.insertBefore(printOptions, reference || null);
+        worksheet.insertBefore(pageMargins, reference || null);
+        worksheet.insertBefore(pageSetup, reference || null);
+
+        const finalXml = serializer.serializeToString(doc);
+        zip.file(sheetPath, finalXml);
+      }
+
+      await applyPrintSetup('xl/worksheets/sheet1.xml', 'landscape', 1, 0);
+      await applyPrintSetup('xl/worksheets/sheet2.xml', 'portrait', 1, 1);
+
+      const finalBlob = await zip.generateAsync({
+        type: 'blob',
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      const downloadUrl = URL.createObjectURL(finalBlob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `programacao_${formattedCode.replace(/\./g, '_')}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+    }
+  </script>
+</body>
+</html>
